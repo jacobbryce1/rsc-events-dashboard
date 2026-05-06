@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.event_cache.json
+.collection_state.json
+.DS_Store
+dist/
