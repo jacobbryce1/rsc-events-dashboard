@@ -2,8 +2,8 @@
 .venv/
 __pycache__/
 *.pyc
-.streamlit/secrets.toml
+.event_cache.json
+.collection_state.json
 .DS_Store
-.pytest_cache/
-tests/ 
-event_cache.json    
+dist/
+docs/*.docx
