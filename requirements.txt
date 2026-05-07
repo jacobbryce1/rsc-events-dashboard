@@ -1,7 +1,23 @@
-streamlit>=1.31.0
-pandas>=2.1.0
-requests>=2.31.0
-python-dotenv>=1.0.0
-plotly>=5.18.0
-tabulate>=0.9.0
-rich>=13.7.0
+# requirements.txt
+#
+# Security fix F-008: All dependencies pinned to exact versions.
+#
+# To update a dependency:
+#   1. Change the version number below.
+#   2. Run: pip install -r requirements.txt
+#   3. Run the test suite: ./test.sh
+#   4. Commit both this file and the test results.
+#
+# To audit for known CVEs:
+#   pip install pip-audit
+#   pip-audit -r requirements.txt
+#
+# Security fix F-003: cryptography added for encrypted disk cache.
+
+streamlit==1.45.1
+pandas==2.2.3
+plotly==6.1.1
+requests==2.32.3
+python-dotenv==1.1.0
+urllib3==2.4.0
+cryptography==44.0.3

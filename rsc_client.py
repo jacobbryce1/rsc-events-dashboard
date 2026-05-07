@@ -1,6 +1,13 @@
-import warnings
-import urllib3
-warnings.filterwarnings("ignore", category=urllib3.exceptions.NotOpenSSLWarning)
+"""
+rsc_client.py — RSC GraphQL client with token lifecycle management.
+
+Security fixes applied:
+  F-001: Removed urllib3 warning suppression entirely.  Any TLS anomaly will
+         now surface as a warning in logs rather than being silently discarded.
+  F-002: Credentials are consumed via SecretStr.get_secret_value() only inside
+         _do_refresh(), and the payload dict is cleared immediately after the
+         POST so the secret does not linger in memory longer than needed.
+"""
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -9,7 +16,6 @@ import time
 import threading
 import logging
 from typing import Optional, Dict, Any, List
-
 from config import (
     RSC_SERVICE_ACCOUNT_ID,
     RSC_SERVICE_ACCOUNT_SECRET,
@@ -39,11 +45,10 @@ class RSCClient:
         self._token_expiry: float = 0
         self._token_lifetime: float = 0
         self._token_lock = threading.Lock()
-        self._token_version: int = 0  # Increments on each refresh
+        self._token_version: int = 0
 
         # Session for connection pooling only — NO auth header on session
         self._session = requests.Session()
-
         retry_strategy = Retry(
             total=2,
             backoff_factor=2,
@@ -51,14 +56,12 @@ class RSCClient:
             allowed_methods=["POST"],
             raise_on_status=False,
         )
-
         adapter = HTTPAdapter(
             max_retries=retry_strategy,
             pool_connections=max_connections,
             pool_maxsize=max_connections,
             pool_block=False,
         )
-
         self._session.mount("https://", adapter)
         self._session.mount("http://", adapter)
 
@@ -82,32 +85,36 @@ class RSCClient:
         return remaining < 300
 
     def _get_token(self) -> str:
-        """Get a valid token, refreshing if needed. Thread-safe."""
+        """Get a valid token, refreshing if needed.  Thread-safe."""
         if not self.needs_refresh and self._token:
             return self._token
-
         with self._token_lock:
-            # Double-check after acquiring lock
             if not self.needs_refresh and self._token:
                 return self._token
             return self._do_refresh()
 
     def _force_refresh(self) -> str:
-        """Force a new token. Thread-safe."""
+        """Force a new token.  Thread-safe."""
         with self._token_lock:
             return self._do_refresh()
 
     def _do_refresh(self) -> str:
-        """Perform token refresh. Must hold _token_lock."""
+        """
+        Perform token refresh.  Must hold _token_lock.
+
+        F-002: Credentials are retrieved via get_secret_value() immediately
+        before the POST and the payload dict is deleted right after to minimise
+        the window during which the secret lives in a local variable.
+        """
         remaining_before = self.remaining_seconds
         start = time.time()
 
-        payload = {
-            "client_id": RSC_SERVICE_ACCOUNT_ID,
-            "client_secret": RSC_SERVICE_ACCOUNT_SECRET,
-        }
-
         for attempt in range(1, 4):
+            # F-002: build payload inline, clear it immediately after use
+            payload = {
+                "client_id": RSC_SERVICE_ACCOUNT_ID.get_secret_value(),
+                "client_secret": RSC_SERVICE_ACCOUNT_SECRET.get_secret_value(),
+            }
             try:
                 resp = requests.post(RSC_TOKEN_ENDPOINT, json=payload, timeout=30)
                 resp.raise_for_status()
@@ -121,25 +128,35 @@ class RSCClient:
                 latency = (time.time() - start) * 1000
                 self._monitor.record_refresh(True, latency, remaining_before)
                 logger.info(
-                    f"Token refreshed (v{self._token_version}): "
-                    f"lifetime={self._token_lifetime:.0f}s, latency={latency:.0f}ms"
+                    "Token refreshed (v%d): lifetime=%.0fs, latency=%.0fms",
+                    self._token_version, self._token_lifetime, latency,
                 )
                 return self._token
 
             except requests.RequestException as e:
                 if attempt < 3:
                     wait = 2 ** attempt
-                    logger.warning(f"Auth attempt {attempt} failed: {e}. Retry in {wait}s...")
+                    logger.warning(
+                        "Auth attempt %d failed: %s. Retry in %ds…", attempt, e, wait
+                    )
                     time.sleep(wait)
                 else:
                     latency = (time.time() - start) * 1000
                     self._monitor.record_refresh(False, latency, remaining_before, str(e))
                     raise
+            finally:
+                # F-002: wipe the payload dict regardless of success/failure
+                payload.clear()
 
-    def _make_request(self, payload: Dict, timeout: int, token: str) -> requests.Response:
+        # Should be unreachable but satisfies type-checker
+        raise RuntimeError("Token refresh failed after 3 attempts")
+
+    def _make_request(
+        self, payload: Dict, timeout: int, token: str
+    ) -> requests.Response:
         """
         Make HTTP request with explicit token in headers.
-        Does NOT use session-level auth headers — each request carries its own token.
+        Does NOT use session-level auth headers — each request carries its own.
         """
         headers = {
             "Content-Type": "application/json",
@@ -173,22 +190,19 @@ class RSCClient:
 
         for attempt in range(1, max_attempts + 1):
             try:
-                # Get current valid token
                 token = self._get_token()
-
                 resp = self._make_request(payload, req_timeout, token)
 
-                # ── 401: get a fresh token and retry with it ──
+                # ── 401 ──────────────────────────────────────────────────────
                 if resp.status_code == 401:
                     logger.warning(
-                        f"401 on attempt {attempt} for {workload_type} page {page} "
-                        f"— forcing token refresh..."
+                        "401 on attempt %d for %s page %d — forcing refresh…",
+                        attempt, workload_type, page,
                     )
                     new_token = self._force_refresh()
                     resp = self._make_request(payload, req_timeout, new_token)
                     if resp.status_code == 401:
-                        # Wait and try one more time — RSC may need a moment
-                        logger.warning("Still 401 after refresh — waiting 5s...")
+                        logger.warning("Still 401 after refresh — waiting 5s…")
                         time.sleep(5)
                         new_token = self._force_refresh()
                         resp = self._make_request(payload, req_timeout, new_token)
@@ -198,11 +212,11 @@ class RSCClient:
                                 f"{workload_type} page {page}"
                             )
 
-                # ── 429: rate limit ──
+                # ── 429 ──────────────────────────────────────────────────────
                 if resp.status_code == 429:
                     retry_after = int(resp.headers.get("Retry-After", 10))
                     self._monitor.record_rate_limit(retry_after, workload_type)
-                    logger.warning(f"Rate limited. Waiting {retry_after}s...")
+                    logger.warning("Rate limited.  Waiting %ds…", retry_after)
                     time.sleep(retry_after)
                     token = self._get_token()
                     resp = self._make_request(payload, req_timeout, token)
@@ -210,25 +224,26 @@ class RSCClient:
                 resp.raise_for_status()
                 result = resp.json()
 
-                # ── GraphQL auth errors ──
+                # ── GraphQL auth errors ───────────────────────────────────────
                 if "errors" in result:
                     errors = result["errors"]
                     err_str = str(errors).lower()
                     if "unauthenticated" in err_str or "unauthorized" in err_str:
-                        logger.warning("GraphQL auth error — refreshing...")
+                        logger.warning("GraphQL auth error — refreshing…")
                         new_token = self._force_refresh()
                         resp = self._make_request(payload, req_timeout, new_token)
                         resp.raise_for_status()
                         result = resp.json()
                         if "errors" in result:
-                            raise RuntimeError(f"GraphQL errors after re-auth: {result['errors']}")
+                            raise RuntimeError(
+                                f"GraphQL errors after re-auth: {result['errors']}"
+                            )
                     else:
                         raise RuntimeError(f"GraphQL errors: {errors}")
 
-                # ── Success ──
+                # ── Success ───────────────────────────────────────────────────
                 data = result.get("data", {})
                 latency = (time.time() - start) * 1000
-
                 events_count = 0
                 for key in data:
                     if isinstance(data[key], dict) and "nodes" in data[key]:
@@ -248,16 +263,15 @@ class RSCClient:
             ) as e:
                 latency = (time.time() - start) * 1000
                 logger.warning(
-                    f"Attempt {attempt}/{max_attempts} for {workload_type} "
-                    f"page {page}: {type(e).__name__}"
+                    "Attempt %d/%d for %s page %d: %s",
+                    attempt, max_attempts, workload_type, page, type(e).__name__,
                 )
                 self._monitor.record_api_call(
                     workload_type, page, latency, 0, False, 0, str(e)
                 )
-
                 if attempt < max_attempts:
                     wait = min(30, 5 * attempt)
-                    logger.info(f"Waiting {wait}s before retry...")
+                    logger.info("Waiting %ds before retry…", wait)
                     time.sleep(wait)
                 else:
                     raise
@@ -268,15 +282,16 @@ class RSCClient:
                 self._monitor.record_api_call(
                     workload_type, page, latency, status, False, 0, str(e)
                 )
-
                 if attempt < max_attempts and status in [401, 403]:
-                    logger.warning(f"HTTP {status} — refreshing and retrying...")
+                    logger.warning("HTTP %d — refreshing and retrying…", status)
                     self._force_refresh()
                     time.sleep(2)
                 else:
                     raise
 
-        raise RuntimeError(f"All {max_attempts} attempts failed for {workload_type} page {page}")
+        raise RuntimeError(
+            f"All {max_attempts} attempts failed for {workload_type} page {page}"
+        )
 
     def execute_paginated_query(
         self,
@@ -287,7 +302,7 @@ class RSCClient:
         max_pages: Optional[int] = None,
         workload_type: str = "general",
     ) -> List[Dict[str, Any]]:
-        all_nodes = []
+        all_nodes: List[Dict[str, Any]] = []
         local_vars = {k: v for k, v in variables.items()}
         local_vars["first"] = page_size
         local_vars["after"] = None
@@ -296,7 +311,7 @@ class RSCClient:
         while True:
             page += 1
             if max_pages and page > max_pages:
-                logger.info(f"Reached max pages ({max_pages}) for {workload_type}")
+                logger.info("Reached max pages (%d) for %s", max_pages, workload_type)
                 break
 
             data = self.execute_query(
