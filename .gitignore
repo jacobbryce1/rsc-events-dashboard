@@ -1,9 +1,69 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# RSC Events Dashboard — .gitignore
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Credentials (NEVER commit) ────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
+
+# ── F-003: Encrypted cache files (contain sensitive RSC estate data) ──────────
+.cache.key              # Fernet encryption key — treat like a password
+.event_cache.bin        # Encrypted RSC event data
+.event_cache.json       # Legacy plaintext cache
+.event_cache.tmp
+.collection_state.json
+
+# ── F-010: Binary archives (distribute via GitHub Releases instead) ───────────
+*.tar.gz
+*.zip
+*.tar.bz2
+*.tar.xz
+dist/
+build/
+release/
+
+# ── Python runtime ────────────────────────────────────────────────────────────
 .venv/
+venv/
+env/
 __pycache__/
 *.pyc
-.event_cache.json
-.collection_state.json
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+.eggs/
+site-packages/
+pip-wheel-metadata/
+
+# ── Testing & coverage ────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.log
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
 .DS_Store
-dist/
+.AppleDouble
+.LSOverride
+._*
+
+# ── Windows ───────────────────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# ── Docs build artefacts ──────────────────────────────────────────────────────
 docs/*.docx
+docs/_build/
