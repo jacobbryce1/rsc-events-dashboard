@@ -1,20 +1,19 @@
+# .streamlit/config.toml
+#
+# Security fix F-006: Bind Streamlit to localhost only.
+#
+# The RSC dashboard displays sensitive customer backup estate data (object names,
+# job statuses, error messages, cluster names).  It must NOT be accessible to
+# other hosts on the network.
+#
+# If you need remote access, place a reverse proxy (nginx / Caddy / Traefik)
+# with HTTPS + authentication in front of this service rather than opening
+# Streamlit directly to the network.
+
 [server]
+address = "127.0.0.1"    # Localhost only — do not change to 0.0.0.0
+headless = true           # Suppress the "you can now view…" browser pop-up
 port = 8501
-address = "localhost"
-headless = true
-runOnSave = true
-fileWatcherType = "poll"
 
 [browser]
-gatherUsageStats = false
-serverAddress = "localhost"
-serverPort = 8501
-
-[theme]
-primaryColor = "#00C4B4"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F5F7FA"
-textColor = "#1A1A2E"
-
-[runner]
-fastReruns = true
+gatherUsageStats = false  # Disable telemetry
