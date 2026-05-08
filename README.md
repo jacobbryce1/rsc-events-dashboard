@@ -1,8 +1,8 @@
-# 🛡️ RSC Cloud Native Workload Dashboard
+# RSC Cloud Native Workload Dashboard
 
 Real-time monitoring dashboard for Rubrik Security Cloud (RSC) job events across all cloud native workloads.
 
-> **Not affiliated with Rubrik.** This is an independent, community-built tool. See [Legal](#legal--disclaimer) for details.
+> **Not affiliated with Rubrik.** This is an independent, community-built tool. See [Legal & Disclaimer](#legal--disclaimer) for full details.
 
 ---
 
@@ -10,7 +10,7 @@ Real-time monitoring dashboard for Rubrik Security Cloud (RSC) job events across
 
 This tool connects to your RSC instance via the GraphQL API and provides a rolling 24-hour view of all cloud native protection job events across AWS, Azure, GCP, and M365. It features automatic incremental updates, interactive filtering, visual analytics, encrypted local caching, and data export.
 
-**v1.0.1** introduces a full security hardening pass reviewed against OWASP Top 10, NIST SP 800-53, CIS Controls v8, and ISO 27001. See [Security](#security) for details.
+**v1.0.1** includes a full security hardening pass reviewed against OWASP Top 10 (2021), NIST SP 800-53 Rev.5, CIS Controls v8, and ISO 27001:2022. See [Security](#security) for details.
 
 ---
 
@@ -18,16 +18,16 @@ This tool connects to your RSC instance via the GraphQL API and provides a rolli
 
 | Feature | Details |
 |---------|---------|
-| 📊 **Rolling 24-hour view** | All cloud native job events, refreshed continuously |
-| ⚡ **Auto-updating** | Incremental fetches every ~30 seconds |
-| 🔍 **Interactive filtering** | By status, workload type, job type, cluster, or free-text search |
-| 📈 **Visual analytics** | Status distribution, workload breakdown, hourly timeline charts |
-| 🔴 **Failed jobs detail** | Expandable section with per-job error messages |
-| 📥 **CSV / JSON export** | Download filtered data for reporting |
-| 💾 **Encrypted disk cache** | Survives restarts; instant reload; AES-encrypted at rest |
-| 🔐 **Optional password gate** | Set `DASHBOARD_PASSWORD` to require login |
-| 🔑 **Token management** | Automatic refresh, retry on failure, rate-limit handling |
-| 🔒 **Localhost binding** | Streamlit bound to `127.0.0.1` by default |
+| 📊 Rolling 24-hour view | All cloud native job events, refreshed continuously |
+| ⚡ Auto-updating | Incremental fetches every ~30 seconds |
+| 🔍 Interactive filtering | By status, workload type, job type, cluster, or free-text search |
+| 📈 Visual analytics | Status distribution, workload breakdown, hourly timeline charts |
+| 🔴 Failed jobs detail | Expandable section with per-job error messages |
+| 📥 CSV / JSON export | Download filtered data for reporting |
+| 💾 Encrypted disk cache | Survives restarts; instant reload; AES-encrypted at rest |
+| 🔐 Optional password gate | Set `DASHBOARD_PASSWORD` to require login |
+| 🔑 Token management | Automatic refresh, retry on failure, rate-limit handling |
+| 🔒 Localhost binding | Streamlit bound to `127.0.0.1` by default |
 
 ---
 
@@ -61,18 +61,19 @@ This tool connects to your RSC instance via the GraphQL API and provides a rolli
 ### macOS / Linux
 
 ```bash
-# Clone or download the repo
+# Clone the repository
 git clone https://github.com/jacobbryce1/rsc-events-dashboard.git
 cd rsc-events-dashboard
 
-# Install (macOS)
-bash install/install_macos.sh
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-# Install (Linux)
-bash install/install_linux.sh
+# Install dependencies
+pip install -r requirements.txt
 
 # Configure credentials
-./configure.sh        # interactive, or edit .env manually (see Configuration below)
+./configure.sh        # interactive wizard, or edit .env manually (see Configuration)
 
 # Run
 ./run.sh
@@ -109,15 +110,15 @@ RSC_SERVICE_ACCOUNT_SECRET=your-secret-here
 RSC_BASE_URL=https://your-org.my.rubrik.com
 ```
 
-Or run the interactive configurator:
+> ⚠️ **Never commit `.env` to version control.** It is already listed in `.gitignore`.
+> `RSC_BASE_URL` must match `https://*.my.rubrik.com` — the app validates this at startup
+> and will refuse to run if the URL does not match.
+
+Or use the interactive configurator:
 
 ```bash
 ./configure.sh
 ```
-
-> ⚠️ **Never commit `.env` to version control.** It is already listed in `.gitignore`.
-> `RSC_BASE_URL` must match `https://*.my.rubrik.com` — the app validates this at startup
-> and will refuse to run if the URL does not match.
 
 ### 2. RSC Service Account Setup
 
@@ -126,22 +127,30 @@ Or run the interactive configurator:
 3. Assign roles: **ViewActivity** and **ViewInventory** *(principle of least privilege)*
 4. Copy the Client ID and Secret into your `.env` file
 
-### 3. Optional: Password Protection
+### 3. Tunable Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `RSC_BASE_URL` | *(required)* | Your RSC instance URL |
+| `RSC_SERVICE_ACCOUNT_ID` | *(required)* | Service account client ID |
+| `RSC_SERVICE_ACCOUNT_SECRET` | *(required)* | Service account secret |
+| `DASHBOARD_PASSWORD` | *(unset)* | Enable login screen when set |
+| `LOG_LEVEL` | `WARNING` | Set to `INFO` or `DEBUG` for verbose output |
+
+### 4. Optional: Password Protection
 
 If the dashboard runs on a shared machine or is exposed beyond localhost, set a password:
 
 ```dotenv
-# .env
 DASHBOARD_PASSWORD=your-strong-password-here
 ```
 
-When set, users see a login screen before any RSC data is displayed. Leave `DASHBOARD_PASSWORD` unset for trusted localhost-only use.
+When set, users see a login screen before any RSC data is displayed. Leave unset for trusted localhost-only use.
 
-### 4. Optional: Log Level
+### 5. Optional: Log Level
 
 ```dotenv
-# .env
-LOG_LEVEL=WARNING    # Default. Change to INFO for verbose output, DEBUG for full traces.
+LOG_LEVEL=WARNING    # Default. INFO for verbose output, DEBUG for full traces.
 ```
 
 ---
@@ -159,7 +168,7 @@ cd ~/rsc-dashboard
 
 | Event | Duration |
 |-------|----------|
-| First launch (full 24 h scan) | 3–5 minutes |
+| First launch (full 24-hour scan) | 3–5 minutes |
 | Subsequent visits (cache hit) | < 5 seconds |
 | Incremental update | ~30 seconds |
 
@@ -169,8 +178,8 @@ cd ~/rsc-dashboard
 |---------|--------|
 | **🔄 Update** | Fetch new events since last update |
 | **🔁 Full Reload** | Clear cache, rescan full 24 hours |
-| **Auto-refresh toggle** | Enable/disable automatic periodic updates |
-| **Interval slider** | Time between auto-refreshes (15 s – 5 min) |
+| Auto-refresh toggle | Enable/disable automatic periodic updates |
+| Interval slider | Time between auto-refreshes (15 s – 5 min) |
 
 ### Filters
 
@@ -186,49 +195,22 @@ cd ~/rsc-dashboard
 
 ---
 
-## Security
+## Output Files
 
-v1.0.1 was reviewed against **OWASP Top 10 (2021)**, **NIST SP 800-53 Rev.5**, **CIS Controls v8**, and **ISO 27001:2022**. The following hardening measures are in place:
+Each run generates the following files at runtime:
 
-### Credential Protection
-- Credentials are loaded from `.env` and wrapped in a `SecretStr` type — they never appear in `repr()`, log output, or exception tracebacks.
-- `RSC_BASE_URL` is validated against an allowlist pattern (`https://*.my.rubrik.com`) at startup. Any other value raises an immediate error, preventing SSRF.
-- The app validates all required credentials are present before any UI renders. Missing or placeholder values produce a clear error and halt startup.
+| File | Description |
+|------|-------------|
+| `.env` | RSC credentials — not committed, owner-read only |
+| `.cache.key` | Fernet encryption key — not committed, `chmod 0o600` |
+| `.event_cache.bin` | AES-encrypted RSC event cache — not committed |
 
-### Encrypted Disk Cache
-The local event cache is **AES-encrypted at rest** using [Fernet](https://cryptography.io/en/latest/fernet/) symmetric encryption (from the `cryptography` package).
+Optional on-demand exports:
 
-- On first run, a random 256-bit key is generated and saved to `.cache.key` with `chmod 0o600` (owner read/write only).
-- The cache data file (`.event_cache.bin`) is opaque ciphertext — unreadable without the key file.
-- Both `.cache.key` and `.event_cache.bin` are excluded from version control via `.gitignore`.
-- If the `cryptography` package is unavailable, disk persistence is disabled gracefully (in-memory only) rather than falling back to plaintext.
-
-> 🔑 **Treat `.cache.key` like a password.** Back it up separately if you need cache persistence across reinstalls. Deleting it invalidates the cache file.
-
-### Network Binding
-Streamlit is bound to `127.0.0.1` (localhost only) via `.streamlit/config.toml`. The dashboard is not accessible to other hosts on the network by default.
-
-If you need remote access, place an authenticated reverse proxy (nginx, Caddy, Traefik) in front of the Streamlit process. Do **not** change `address` to `0.0.0.0` without adding authentication.
-
-### Dashboard Authentication
-Set `DASHBOARD_PASSWORD` in your `.env` to enable a login screen. Password comparison uses `hmac.compare_digest` (constant-time) to prevent timing attacks.
-
-### Error Handling
-Raw exception messages, stack traces, and URL strings are never rendered in the browser UI. All errors are logged server-side; the UI shows only a sanitised message.
-
-### Dependency Auditing
-All dependencies are pinned to exact versions in `requirements.txt`. A GitHub Actions workflow (`security-audit.yml`) runs `pip-audit` on every push and weekly to detect known CVEs.
-
-### Files Generated at Runtime
-
-| File | Contents | Protected by |
-|------|----------|--------------|
-| `.env` | RSC credentials | `.gitignore`, file permissions |
-| `.cache.key` | Fernet encryption key | `.gitignore`, `chmod 0o600` |
-| `.event_cache.bin` | Encrypted RSC event data | `.gitignore`, Fernet encryption |
-
-### Reporting Vulnerabilities
-See [SECURITY.md](SECURITY.md) for our responsible disclosure process.
+| File | Description |
+|------|-------------|
+| `export_TIMESTAMP.csv` | Filtered data export, sortable in Excel |
+| `export_TIMESTAMP.json` | Filtered data export with metadata |
 
 ---
 
@@ -249,7 +231,7 @@ RSC GraphQL API (activitySeriesConnection)
                 v
 +--------------------------------+
 |   IncrementalCache             |
-|   - Rolling 24 h window        |
+|   - Rolling 24-hour window     |
 |   - Merge new / updated events |
 |   - Expire old events          |
 |   - AES-encrypted disk persist |
@@ -272,29 +254,67 @@ RSC GraphQL API (activitySeriesConnection)
 
 ```
 rsc-dashboard/
-├── dashboard.py            # Streamlit UI, auth gate, safe error handling
-├── data_collector.py       # RSC API event fetching, parallel workers
-├── rsc_client.py           # GraphQL client, token lifecycle (SecretStr)
-├── incremental_cache.py    # Rolling 24 h cache, AES-encrypted disk persist
-├── token_monitor.py        # Token health metrics
-├── config.py               # SecretStr credentials, URL validation, startup check
-├── utils.py                # DataFrame helpers
-├── requirements.txt        # Pinned dependencies
-├── .env                    # RSC credentials — NOT committed
-├── .env.example            # Template
-├── .cache.key              # Fernet key — NOT committed, chmod 0o600
-├── .event_cache.bin        # Encrypted cache — NOT committed
+├── dashboard.py                    # Streamlit UI, auth gate, safe error handling
+├── data_collector.py               # RSC API event fetching, parallel workers
+├── rsc_client.py                   # GraphQL client, token lifecycle (SecretStr)
+├── incremental_cache.py            # Rolling 24-hour cache, AES-encrypted persist
+├── token_monitor.py                # Token health metrics
+├── config.py                       # SecretStr credentials, URL validation
+├── utils.py                        # DataFrame helpers
+├── requirements.txt                # Pinned dependencies
+├── .env                            # RSC credentials — NOT committed
+├── .env.example                    # Template
+├── .cache.key                      # Fernet key — NOT committed, chmod 0o600
+├── .event_cache.bin                # Encrypted cache — NOT committed
 ├── .gitignore
 ├── .streamlit/
-│   └── config.toml         # Localhost binding, telemetry off
+│   └── config.toml                 # Localhost binding, telemetry off
 ├── .github/
 │   └── workflows/
-│       └── security-audit.yml  # pip-audit on push + weekly cron
-├── assets/                 # Images
-├── tests/                  # Validation test suite
-├── docs/                   # Setup guide and troubleshooting
-└── install/                # OS-specific install scripts
+│       └── security-audit.yml      # pip-audit on push + weekly cron
+├── assets/                         # Images
+├── tests/                          # Validation test suite
+├── docs/                           # Setup guide and troubleshooting
+└── install/                        # OS-specific install scripts
 ```
+
+---
+
+## Security
+
+v1.0.1 was reviewed against **OWASP Top 10 (2021)**, **NIST SP 800-53 Rev.5**, **CIS Controls v8**, and **ISO 27001:2022**. The following hardening measures are in place:
+
+### Credential Protection
+- Credentials are loaded from `.env` and wrapped in a `SecretStr` type — they never appear in `repr()`, log output, or exception tracebacks.
+- `RSC_BASE_URL` is validated against an allowlist pattern (`https://*.my.rubrik.com`) at startup. Any other value raises an immediate error, preventing SSRF.
+- The app validates all required credentials are present before any UI renders. Missing or placeholder values produce a clear error and halt startup.
+
+### Encrypted Disk Cache
+The local event cache is **AES-encrypted at rest** using [Fernet](https://cryptography.io/en/latest/fernet/) symmetric encryption.
+
+- On first run, a random 256-bit key is generated and saved to `.cache.key` with `chmod 0o600` (owner read/write only).
+- The cache data file (`.event_cache.bin`) is opaque ciphertext — unreadable without the key file.
+- Both `.cache.key` and `.event_cache.bin` are excluded from version control via `.gitignore`.
+- If the `cryptography` package is unavailable, disk persistence is disabled gracefully (in-memory only) rather than falling back to plaintext.
+
+> 🔑 **Treat `.cache.key` like a password.** Back it up separately if you need cache persistence across reinstalls. Deleting it invalidates the cache file.
+
+### Network Binding
+Streamlit is bound to `127.0.0.1` (localhost only) via `.streamlit/config.toml`. The dashboard is not accessible to other hosts on the network by default.
+
+If you need remote access, place an authenticated reverse proxy (nginx, Caddy, Traefik) in front of the Streamlit process. Do **not** change `address` to `0.0.0.0` without adding authentication.
+
+### Dashboard Authentication
+Set `DASHBOARD_PASSWORD` in `.env` to enable a login screen. Password comparison uses `hmac.compare_digest` (constant-time) to prevent timing attacks.
+
+### Error Handling
+Raw exception messages, stack traces, and URL strings are never rendered in the browser UI. All errors are logged server-side; the UI shows only a sanitised message.
+
+### Dependency Auditing
+All dependencies are pinned to exact versions in `requirements.txt`. A GitHub Actions workflow (`security-audit.yml`) runs `pip-audit` on every push and weekly to detect known CVEs.
+
+### Reporting Vulnerabilities
+See [SECURITY.md](SECURITY.md) for the responsible disclosure process. Please do **not** open a public GitHub issue for security vulnerabilities.
 
 ---
 
@@ -302,11 +322,11 @@ rsc-dashboard/
 
 | Operation | Duration |
 |-----------|----------|
-| Full 24 h load | 3–5 minutes |
+| Full 24-hour load | 3–5 minutes |
 | Incremental update | ~30 seconds |
 | Dashboard restart (cache hit) | < 5 seconds |
 
-The RSC API responds in ~30–40 seconds per request. The dashboard uses 4 parallel workers, which balances speed against server-side rate limits.
+The RSC API responds in ~30–40 seconds per request. The dashboard uses 4 parallel workers, balancing speed against server-side rate limits.
 
 ---
 
@@ -333,13 +353,32 @@ pip-audit -r requirements.txt
 ```bash
 cd ~/rsc-dashboard
 source .venv/bin/activate
-git pull                         # or copy new .py files over existing ones
-pip install -r requirements.txt  # picks up any new/updated pinned deps
-rm -f .event_cache.bin           # clear old cache after a major update
+git pull
+pip install -r requirements.txt    # picks up any new pinned deps
+rm -f .event_cache.bin             # clear cache after a major update
 ./run.sh
 ```
 
-> If you are upgrading from v1.0.0: delete `.event_cache.json` (legacy plaintext cache) and let the new version create `.event_cache.bin` (encrypted) on first run.
+> **Upgrading from v1.0.0?** Delete `.event_cache.json` (legacy plaintext cache). The new version creates `.event_cache.bin` (encrypted) on first run.
+
+---
+
+## Troubleshooting
+
+**"RSC_BASE_URL is not valid"**
+Your `.env` value must match `https://*.my.rubrik.com`. Check for trailing slashes or typos.
+
+**"Authentication failed"**
+Verify `RSC_SERVICE_ACCOUNT_ID` and `RSC_SERVICE_ACCOUNT_SECRET` in your `.env`. Confirm the service account is active in RSC Settings → Service Accounts.
+
+**"Feature not licensed"**
+Some workload types may not be enabled on your RSC instance. The dashboard skips unlicensed workloads automatically and reports which ones are unavailable.
+
+**Timeouts on first load**
+The initial 24-hour scan takes 3–5 minutes due to API response times. Subsequent visits use the encrypted cache and load in under 5 seconds.
+
+**Rate limiting (429 responses)**
+The tool respects `Retry-After` headers automatically. If you see frequent 429s, reduce the auto-refresh interval in the dashboard controls.
 
 ---
 
@@ -353,13 +392,27 @@ This removes all code, the virtual environment, credentials, cache, and the encr
 
 ---
 
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -am 'Add feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+Please run `pip-audit -r requirements.txt` before submitting and include test coverage for any new functionality.
+
+---
+
 ## Legal & Disclaimer
 
-This project is an **independent, open-source tool** and is **not affiliated with, authorized, maintained, sponsored, or endorsed by Rubrik, Inc.** in any way. All product and company names are the registered trademarks of their respective owners. The use of any trade name or trademark is for identification and reference purposes only.
+This project is an **independent, open-source tool** and is **not affiliated with, authorized, maintained, sponsored, or endorsed by Rubrik, Inc.** in any way. All product and company names are the registered trademarks of their respective owners. The use of any trade name or trademark is for identification and reference purposes only and does not imply any affiliation with or endorsement by the trademark holder.
 
-This software is provided **'as-is,' without warranty of any kind**. Use of this tool is at your own risk. The authors are not responsible for any data loss, API rate-limit overages, account suspensions, or security incidents resulting from the use of this software.
+This software is provided **"as-is," without warranty of any kind**, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement. Use of this tool is entirely at your own risk. The authors and contributors are not responsible for any data loss, API rate-limit overages, account suspensions, security incidents, or other damages resulting from the use or misuse of this software.
 
 You must have a valid API key and an active subscription or license for Rubrik Security Cloud (RSC). This software does not bypass any licensing checks or provide unauthorised access to Rubrik features.
+
+For questions about the security design of this tool, open a GitHub Discussion. To report a vulnerability, follow the process in [SECURITY.md](SECURITY.md).
 
 ---
 
