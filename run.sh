@@ -5,6 +5,8 @@ cd "$(dirname "$0")"
 # Activate virtual environment
 if [ -d ".venv" ]; then
     source .venv/bin/activate
+elif [ -d "venv" ]; then
+    source venv/bin/activate
 else
     echo "Virtual environment not found."
     echo "Run the install script first or create one:"
@@ -13,6 +15,12 @@ else
     echo "  pip install -r requirements.txt"
     exit 1
 fi
+
+# Ensure all dependencies are installed (safe to run on every launch)
+echo "  Checking dependencies..."
+pip install -r requirements.txt -q
+pip install watchdog -q
+echo "  Dependencies OK"
 
 # Check .env
 if [ ! -f .env ]; then

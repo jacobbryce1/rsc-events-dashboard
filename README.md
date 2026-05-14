@@ -65,19 +65,17 @@ This tool connects to your RSC instance via the GraphQL API and provides a rolli
 git clone https://github.com/jacobbryce1/rsc-events-dashboard.git
 cd rsc-events-dashboard
 
-# Create and activate a virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Create a virtual environment (either .venv or venv — both are detected automatically)
+python3 -m venv .venv
 
 # Configure credentials
 ./configure.sh        # interactive wizard, or edit .env manually (see Configuration)
 
-# Run
+# Run — dependencies are installed automatically on first launch
 ./run.sh
 ```
+
+> **Note:** You no longer need to run `pip install -r requirements.txt` manually. `run.sh` installs all required packages (including `cryptography` for encrypted disk cache and `watchdog` for better Streamlit performance) automatically each time it launches. The install step is a no-op if packages are already up to date.
 
 ### Windows (PowerShell)
 
